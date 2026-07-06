@@ -2,6 +2,16 @@
 
 ## 1. System Design
 
+**Core user actions**
+
+Based on the scenario in the README, a user of PawPal+ should be able to:
+
+- Enter basic owner and pet information (e.g., pet name, breed, and any relevant details about the owner) so the app knows who and what it's planning for.
+- Add and edit pet care tasks (walks, feeding, meds, grooming, enrichment, etc.), specifying at least a duration and a priority for each one.
+- Set the constraints and preferences the schedule should respect, such as how much time is available in the day and any owner preferences.
+- Generate a daily plan/schedule that fits the tasks into the available time based on their priorities and constraints.
+- View the generated plan clearly, ideally with an explanation of why tasks were scheduled the way they were.
+
 **a. Initial design**
 
 - Briefly describe your initial UML design.

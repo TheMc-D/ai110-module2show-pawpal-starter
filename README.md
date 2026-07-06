@@ -22,6 +22,21 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## ✨ Features
+
+What's actually implemented in `pawpal_system.py`, connected to the Streamlit UI in `app.py`:
+
+- **Owner & pet profiles** — track multiple pets per owner, each with their own independent task list.
+- **Task tracking** — record a title, category, duration, priority, and an optional preferred time for every care task.
+- **Priority-based scheduling** — `Scheduler.build_schedule()` builds a daily plan tier by tier, so a higher-priority task is never dropped to make room for a lower-priority one.
+- **Time-budget packing** — within a priority tier, a best-fit search (`Scheduler._best_fit_subset()`) picks whichever combination of tasks uses the most of the remaining time, instead of wasting minutes on a fixed greedy order.
+- **Sorting by priority** — `Scheduler.sort_by_priority()` orders tasks highest priority first, breaking ties by shorter duration.
+- **Sorting by time** — `Scheduler.sort_by_time()` orders tasks chronologically by preferred time, with untimed tasks sorting last.
+- **Filtering** — `Owner.filter_tasks()` narrows the task list by pet name and/or completion status, independently or combined.
+- **Conflict warnings** — `Scheduler.detect_conflicts()` flags any pair of same-day tasks whose preferred times overlap, even across different pets, and surfaces them automatically whenever a schedule is built.
+- **Daily & weekly recurrence** — completing a `daily` or `weekly` task automatically spawns its next occurrence (respecting a weekly `days_of_week` pattern, e.g. Mon/Wed/Fri), so recurring care never has to be re-entered by hand.
+- **Plan explanations** — `Scheduler.explain()` gives a human-readable reason for why each task made it onto the schedule.
+
 ## Getting started
 
 ### Setup
@@ -82,9 +97,6 @@ Sample test output:
 
 ```
 ============================= test session starts =============================
-platform win32 -- Python 3.13.13, pytest-9.0.3, pluggy-1.6.0
-rootdir: C:\Users\chukw\OneDrive\Desktop\AI110\ai110-module2show-pawpal-starter
-plugins: anyio-4.13.0
 collected 41 items
 
 test_pawpal_system.py ....................                               [ 48%]
@@ -110,12 +122,79 @@ The core scheduling behaviors — sorting, recurrence, filtering, conflict detec
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### Main UI features
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+The Streamlit app (`app.py`) is organized top-to-bottom in the order you'd actually use it:
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+- **Owner & Pets** — set the owner's name and add one or more pets (name + species).
+- **Scheduling preferences** — set the daily time budget (minutes) and the schedule's start time; these feed every scheduling action below.
+- **Tasks** — add a care task to a selected pet (title, category, duration, priority, optional preferred time), then view all tasks in a table with:
+  - **Filter by pet** / **Filter by status** dropdowns
+  - A **Sort by** dropdown (Default / Priority / Preferred time)
+  - A **Check for time conflicts** button that flags overlapping preferred times with `st.warning`
+- **Build Schedule** — a **Generate schedule** button that runs the full scheduler and displays the result: conflict warnings (if any), the scheduled tasks as a table with an explanation caption per task, and any tasks that didn't fit in the time budget.
+
+### Example workflow
+
+1. Enter the owner's name and add a pet, e.g. "Mochi" (dog).
+2. Add a task for Mochi: "Morning walk," 30 minutes, high priority, preferred time `08:00`.
+3. Add a second task: "Feeding," 10 minutes, high priority, preferred time `08:00` (deliberately overlapping, to see conflict detection).
+4. Click **Check for time conflicts** — a warning appears calling out that "Morning walk" and "Feeding" overlap.
+5. Fix the time on one task, then click **Generate schedule** — today's plan appears as a table (start/end time, pet, task, priority), each row followed by a one-line explanation of why it was scheduled.
+6. Add more tasks than the time budget allows — generating the schedule again shows the lower-priority tasks moved into the "didn't fit in today's time budget" table instead of being scheduled.
+
+### Key Scheduler behaviors shown
+
+- **Sorting** — switching the task table's "Sort by" dropdown to "Priority" or "Preferred time" reorders it live using `Scheduler.sort_by_priority()` / `sort_by_time()`.
+- **Conflict warnings** — two tasks with the same or overlapping preferred times always produce a warning, whether checked manually or surfaced automatically when a schedule is generated.
+- **Priority-aware, time-budget-aware packing** — the generated schedule always keeps higher-priority tasks over lower-priority ones, and best-fits whichever combination of same-priority tasks uses the most of the remaining budget.
+- **Recurrence** — marking a `daily` or `weekly` task complete (exercised in `main.py`, not yet wired to a UI button) spawns its next occurrence automatically.
+
+### Sample CLI output
+
+`main.py` exercises the same backend without the UI — sorting, filtering, recurrence, conflict detection, and a final generated schedule:
+
+```bash
+python main.py
+```
+
+```
+=== Sorting: all tasks by preferred time ===
+  08:00  Morning walk (Mochi)
+  08:30  Feeding (Mochi)
+  09:00  Litter box cleaning (Biscuit)
+  09:30  Playtime (Biscuit)
+  18:00  Evening walk (Mochi)
+
+=== Filtering: only Mochi's tasks ===
+  Evening walk (completed=False)
+  Feeding (completed=False)
+  Morning walk (completed=False)
+
+=== Filtering: completed tasks (should be none yet) ===
+  []
+
+=== Recurring tasks: completing 'Morning walk' should spawn tomorrow's occurrence ===
+  Evening walk: completed=False, due_date=n/a
+  Feeding: completed=False, due_date=n/a
+  Morning walk: completed=True, due_date=n/a
+  Morning walk: completed=False, due_date=2026-07-07
+
+=== Filtering: completed tasks (after marking one complete) ===
+  ['Morning walk']
+
+=== Conflict detection: two tasks scheduled at the same time ===
+  WARNING: 'Vet checkup' (Mochi, 08:00-08:20) overlaps 'Grooming appointment' (Biscuit, 08:10-08:25)
+
+Today's Schedule
+Daily plan for Jordan's pets — 2026-07-06
+  08:00-08:10 — Feeding (Mochi, high priority)
+  08:10-08:30 — Vet checkup (Mochi, high priority)
+  08:30-08:45 — Litter box cleaning (Biscuit, medium priority)
+  08:45-09:00 — Grooming appointment (Biscuit, medium priority)
+  09:00-09:30 — Evening walk (Mochi, medium priority)
+Not scheduled (ran out of time):
+  Playtime (Biscuit, 45 min)
+Warnings:
+  'Vet checkup' (Mochi, 08:00-08:20) overlaps 'Grooming appointment' (Biscuit, 08:10-08:25)
+```

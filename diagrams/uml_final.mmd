@@ -1,0 +1,83 @@
+classDiagram
+    %% Final design — matches the implementation in pawpal_system.py.
+    %% See uml_draft.mmd for the Phase 1 draft and reflection.md for the reasoning behind each change.
+
+    class Task {
+        +str title
+        +str category
+        +int duration_minutes
+        +Priority priority
+        +Recurrence recurrence
+        +List~int~ days_of_week
+        +str preferred_time
+        +date due_date
+        +bool completed
+        +Pet pet
+        +is_due_today(today: date) bool
+        +mark_complete(today: date) void
+        +mark_incomplete() void
+        -_create_next_occurrence(today: date) Task
+        -_next_matching_weekday(after: date) date
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +Owner owner
+        +List~Task~ tasks
+        +add_task(task: Task) void
+        +get_tasks_due_today(today: date) List~Task~
+    }
+
+    class Owner {
+        +str name
+        +dict preferences
+        +List~Pet~ pets
+        +add_pet(pet: Pet) void
+        +get_all_tasks() List~Task~
+        +get_tasks_due_today(today: date) List~Task~
+        +filter_tasks(pet_name: str, completed: bool) List~Task~
+    }
+
+    class ScheduledTask {
+        +Task task
+        +str start_time
+        +str end_time
+        +overlaps_with(other: ScheduledTask) bool
+    }
+
+    class DailyPlan {
+        +str date
+        +Owner owner
+        +List~ScheduledTask~ scheduled_tasks
+        +List~Task~ dropped_tasks
+        +List~str~ conflict_warnings
+        +add_scheduled_task(task: Task, start_time: str, end_time: str) void
+        +total_time_used() int
+        +to_display() str
+    }
+
+    class Scheduler {
+        +int available_time_minutes
+        +str start_time
+        +dict constraints
+        +build_schedule(owner: Owner, today: date) DailyPlan
+        +sort_by_priority(tasks: List~Task~) List~Task~
+        +sort_by_time(tasks: List~Task~) List~Task~
+        +detect_conflicts(tasks: List~Task~) List~str~
+        +filter_by_time(tasks: List~Task~, budget: int) Tuple
+        +explain(task: Task) str
+        -_best_fit_subset(tasks: List~Task~, budget: int) List~Task~
+    }
+
+    Owner "1" --> "many" Pet : owns
+    Pet "1" --> "many" Task : has
+    Task --> Pet : pet (back-reference)
+    Task ..> Task : mark_complete() spawns next occurrence
+    Scheduler ..> Owner : reads due tasks from
+    Scheduler ..> DailyPlan : creates
+    DailyPlan "1" --> "1" Owner : for
+    DailyPlan "1" --> "many" ScheduledTask : contains
+    DailyPlan "1" --> "many" Task : drops
+    ScheduledTask --> Task : wraps

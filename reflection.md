@@ -43,8 +43,9 @@ The common thread is that the first UML pass got the classes and their broad res
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers three constraints: a hard time budget (`available_time_minutes`), task priority (`high`/`medium`/`low`), and each task's `preferred_time`. `Owner.preferences` exists as a dict for future owner-level preferences, but nothing in `Scheduler` reads it yet — it's a placeholder, not an active constraint.
+
+Priority is the dominant constraint because it stands in for something that matters more than the clock: giving medication versus extra playtime aren't interchangeable just because they take the same number of minutes. The time budget is the one true hard constraint — a day only has so many minutes, so it decides what gets dropped once priority order is fixed. `preferred_time` is deliberately advisory rather than a hard scheduling constraint: it's used to order tasks and detect conflicts, but `build_schedule()` still packs tasks back-to-back from `start_time` rather than pinning each one to its preferred slot — a scheduler that rigidly enforced preferred times would generate far more "not scheduled" tasks than one that treats them as a hint plus a conflict check.
 
 **b. Tradeoffs**
 
@@ -56,15 +57,21 @@ This tradeoff is reasonable for pet care specifically because priority tiers are
 
 ## 3. AI Collaboration
 
-**a. How you used AI**
+**a. Most effective AI assistant features**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+The most useful capability wasn't code generation itself — it was the assistant reading the actual current state of a file before touching it, then making a scoped edit against exact lines instead of proposing a full-file rewrite. That kept every change reviewable: I could see precisely what was added to `pawpal_system.py` or `app.py` rather than having to diff a wholesale rewrite by eye. Just as important, the assistant actually *ran* things — `pytest` after every test change, `python main.py` to capture real sample output for the README — so claims like "41 passed" were verified facts, not descriptions of intent.
 
-**b. Judgment and verification**
+**b. An AI suggestion I rejected or modified**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+When a new test (`duration_minutes=0`) failed, the AI's first proposed fix was to patch `Scheduler._best_fit_subset()`'s internal tie-breaking logic so the subset-sum search would tolerate a zero-duration task. I rejected that: it would have added defensive complexity to an already-subtle algorithm just to accommodate an input that should never legally exist. I pushed back and asked for validation at the boundary instead. The fix that shipped was a `Task.__post_init__` check that rejects any `duration_minutes < 1` at construction time — simpler, matches the constraint the Streamlit form (`min_value=1`) already enforces, and leaves the scheduling algorithm itself untouched.
+
+**c. Using separate chat sessions**
+
+I split the work across three chat sessions on purpose: one to keep algorithmic planning (working out the UML design and the scheduling approach — priority tiers, best-fit time-budget packing, recurrence rules) separate from the session where I actually built the core implementation, and a third session dedicated only to testing. Keeping planning separate from implementation meant design decisions got made deliberately rather than being improvised mid-code, and giving testing its own session meant it got treated as its own pass over the finished system — including a whole class of edge cases (empty pets, exact-same-time conflicts, invalid durations) that's easy to skip if testing is squeezed in at the tail end of a build session instead of run as a focused pass.
+
+**d. Being the "lead architect"**
+
+The AI can produce a plausible, working fix quickly — but "plausible" and "correct for this system" aren't the same thing. The zero-duration bug is the clearest example: the first fix worked (tests passed) but put the complexity in the wrong layer. Being the lead architect meant continuing to ask "why here and not at the boundary" instead of accepting the first green test run, and deciding what belonged in each artifact — a Features list that names real methods instead of aspirational copy, a Confidence Level that's earned by what the tests actually cover rather than inflated for the README. The AI moves fast once given direction; the judgment calls about where a fix belongs and whether a claim is actually verified stayed mine to make.
 
 ---
 
@@ -72,13 +79,13 @@ This tradeoff is reasonable for pet care specifically because priority tiers are
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+The dedicated testing session produced 41 automated tests covering sorting (priority ordering with duration as a tiebreaker; chronological time ordering with untimed tasks sorting last), recurrence (daily/weekly tasks spawning a correctly-dated next occurrence, including the `days_of_week` pattern advancing to the next matching weekday rather than jumping a full week), filtering (by pet, by completion status, and both combined), conflict detection (overlapping preferred times flagged — including the exact-same-time case and conflicts across different pets — while back-to-back and untimed tasks are confirmed to never be falsely flagged), time-budget packing (higher-priority tasks never dropped for lower-priority ones, best-fit minimizing wasted time within a tier), and edge cases (a pet with no tasks, an owner with no pets, an empty daily plan, and invalid non-positive durations rejected at creation).
+
+Beyond the automated suite, I also manually tested the app itself — running `python main.py` and reading through its printed output, and clicking through the Streamlit UI directly (adding pets/tasks, generating schedules, checking conflict warnings) to confirm the backend's behavior actually looks right to a user, not just correct in isolation against an assertion. These behaviors matter because they're exactly what a pet owner would notice going wrong: a missed medication because of a silent scheduling bug, or a false conflict warning that erodes trust in the tool, is worse than the app doing nothing at all.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+I rated this a 4 out of 5 in the README. The core algorithms are covered by passing tests, including boundary cases, and I've confirmed the same behaviors hold up when driving the actual UI and CLI by hand. The star held back is for what's still unit-level or manually spot-checked rather than exhaustively tested: long recurrence chains (many consecutive completions of a weekly multi-day task, to make sure `due_date` advancement doesn't drift over weeks), a much larger number of tasks in one day (to see how the best-fit subset-sum search performs as task count grows, since it's combinatorial rather than linear), and duplicate/near-duplicate task titles across pets.
 
 ---
 
@@ -86,12 +93,12 @@ This tradeoff is reasonable for pet care specifically because priority tiers are
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+I'm most satisfied with the recurrence logic and the time-budget best-fit packing, since both required real algorithmic thought instead of just glue code — `mark_complete()` correctly spawning the next occurrence for a weekly task with a multi-day `days_of_week` pattern (advancing to the next matching weekday rather than jumping a full week), and `_best_fit_subset()` finding the combination of same-priority tasks that fills the remaining time budget best instead of just greedily taking tasks in a fixed order.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+If I had another iteration, I'd wire a "mark complete" button into the Streamlit UI so recurrence is actually demoable there instead of only being exercised through `main.py`. I'd also make `Owner.preferences` an active constraint the scheduler reads (e.g. a preferred start time or a blackout window) instead of an inert dict that exists in the data model but does nothing yet.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+Keeping the data classes (`Task`/`Pet`/`Owner`) separate from the class that makes decisions (`Scheduler`) made every later addition — conflict detection, then recurrence, then time-budget packing — additive instead of requiring a redesign. The Phase 1 split held up even though almost every method's signature changed by the end. Splitting the AI collaboration itself into planning, implementation, and testing sessions reinforced the same lesson at the process level: deciding the design before writing code, and testing as its own deliberate pass rather than an afterthought, produced a more coherent system than doing everything in one continuous, improvised session would have.

@@ -120,14 +120,16 @@ if owner.pets:
         with filter_col2:
             status_filter = st.selectbox("Filter by status", ["All", "Completed", "Incomplete"])
         with filter_col3:
-            sort_by_time = st.checkbox("Sort by preferred time")
+            sort_option = st.selectbox("Sort by", ["Default", "Priority", "Preferred time"])
 
         completed_filter = {"All": None, "Completed": True, "Incomplete": False}[status_filter]
         display_tasks = owner.filter_tasks(
             pet_name=None if pet_filter == "All" else pet_filter,
             completed=completed_filter,
         )
-        if sort_by_time:
+        if sort_option == "Priority":
+            display_tasks = scheduler.sort_by_priority(display_tasks)
+        elif sort_option == "Preferred time":
             display_tasks = scheduler.sort_by_time(display_tasks)
 
         st.write(f"Showing {len(display_tasks)} of {len(all_tasks)} tasks:")
@@ -140,7 +142,7 @@ if owner.pets:
                     "duration_minutes": task.duration_minutes,
                     "priority": task.priority,
                     "preferred_time": task.preferred_time or "",
-                    "completed": task.completed,
+                    "status": "✅ Done" if task.completed else "◻ Pending",
                 }
                 for task in display_tasks
             ]
@@ -149,6 +151,7 @@ if owner.pets:
         if st.button("Check for time conflicts"):
             conflicts = scheduler.detect_conflicts(owner.get_tasks_due_today(date.today()))
             if conflicts:
+                st.warning(f"⚠️ {len(conflicts)} scheduling conflict(s) found among today's tasks:")
                 for warning in conflicts:
                     st.warning(warning)
             else:
@@ -165,6 +168,43 @@ st.caption("Builds today's plan from your pets' tasks, ordered by priority and f
 
 if st.button("Generate schedule"):
     plan = scheduler.build_schedule(owner, date.today())
-    st.text(plan.to_display())
-    for scheduled in plan.scheduled_tasks:
-        st.caption(scheduler.explain(scheduled.task))
+
+    if plan.conflict_warnings:
+        st.warning(
+            f"⚠️ {len(plan.conflict_warnings)} scheduling conflict(s) — "
+            "consider adjusting one of these tasks' preferred times:"
+        )
+        for warning in plan.conflict_warnings:
+            st.warning(warning)
+
+    if plan.scheduled_tasks:
+        st.success(f"Scheduled {len(plan.scheduled_tasks)} task(s) for {plan.date}.")
+        st.table(
+            [
+                {
+                    "time": f"{scheduled.start_time}-{scheduled.end_time}",
+                    "pet": scheduled.task.pet.name if scheduled.task.pet else "",
+                    "task": scheduled.task.title,
+                    "priority": scheduled.task.priority,
+                }
+                for scheduled in plan.scheduled_tasks
+            ]
+        )
+        for scheduled in plan.scheduled_tasks:
+            st.caption(f"💡 {scheduler.explain(scheduled.task)}")
+    else:
+        st.info("No tasks are due today.")
+
+    if plan.dropped_tasks:
+        st.info(f"{len(plan.dropped_tasks)} task(s) didn't fit in today's time budget:")
+        st.table(
+            [
+                {
+                    "pet": task.pet.name if task.pet else "",
+                    "task": task.title,
+                    "duration_minutes": task.duration_minutes,
+                    "priority": task.priority,
+                }
+                for task in plan.dropped_tasks
+            ]
+        )

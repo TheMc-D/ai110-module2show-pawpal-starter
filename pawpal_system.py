@@ -27,6 +27,13 @@ class Task:
     completed: bool = False
     pet: Optional["Pet"] = None
 
+    def __post_init__(self) -> None:
+        if self.duration_minutes < 1:
+            raise ValueError(
+                f"duration_minutes must be at least 1 minute, got {self.duration_minutes}. "
+                "Please enter a duration within the approved range."
+            )
+
     def is_due_today(self, today: date_type) -> bool:
         """Return True if this task should appear on today's schedule.
 

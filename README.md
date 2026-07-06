@@ -60,17 +60,42 @@ Not scheduled (ran out of time):
 
 ```bash
 # Run the full test suite:
-pytest
+python -m pytest
+
+# Run with verbose output:
+python -m pytest -v
 
 # Run with coverage:
 pytest --cov
 ```
 
+The suite (41 tests across `test_pawpal_system.py` and `tests/test_pawpal.py`) covers:
+
+- **Sorting** — priority ordering (with duration as a tiebreaker) and chronological time ordering, including untimed tasks sorting last.
+- **Recurrence** — daily and weekly tasks spawn a fresh, incomplete task for their next due date on completion (respecting `days_of_week` patterns), while one-time tasks never recur.
+- **Filtering** — narrowing an owner's tasks by pet name and/or completion status, independently and combined.
+- **Conflict detection** — overlapping preferred times are flagged (including tasks scheduled at the exact same time and across different pets), while back-to-back and untimed tasks are correctly left alone.
+- **Time-budget scheduling** — higher-priority tasks are never dropped for lower-priority ones, and the best-fit packing minimizes wasted time within a priority tier.
+- **Edge cases** — a pet with no tasks, an owner with no pets, an empty daily plan when nothing is due, and invalid task durations (zero/negative) being rejected at creation.
+
 Sample test output:
 
 ```
-# Paste your pytest output here
+============================= test session starts =============================
+platform win32 -- Python 3.13.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\chukw\OneDrive\Desktop\AI110\ai110-module2show-pawpal-starter
+plugins: anyio-4.13.0
+collected 41 items
+
+test_pawpal_system.py ....................                               [ 48%]
+tests\test_pawpal.py .....................                               [100%]
+
+============================= 41 passed in 0.06s ==============================
 ```
+
+### Confidence Level: ★★★★☆ (4/5)
+
+The core scheduling behaviors — sorting, recurrence, filtering, conflict detection, and time-budget packing — are covered by passing tests, including boundary cases like same-time conflicts, back-to-back tasks, and empty pets/owners. One star held back because the suite is unit-level only: it doesn't yet exercise the Streamlit UI (`app.py`) end-to-end, and multi-week/multi-month recurrence chains beyond a single "complete → next occurrence" step haven't been stress-tested.
 
 ## 📐 Smarter Scheduling
 

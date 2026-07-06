@@ -1,0 +1,62 @@
+classDiagram
+    %% Initial design draft — will be refined once implementation is underway.
+
+    class Owner {
+        +str name
+        +dict preferences
+        +add_pet(pet: Pet) void
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +Owner owner
+        +add_task(task: Task) void
+    }
+
+    class Task {
+        +str title
+        +str category
+        +int duration_minutes
+        +str priority
+        +str recurrence
+        +str preferred_time
+        +conflicts_with(other: Task) bool
+        +is_due_today() bool
+    }
+
+    class Scheduler {
+        +int available_time_minutes
+        +str start_time
+        +dict constraints
+        +build_schedule(tasks: List~Task~) DailyPlan
+        +sort_by_priority(tasks: List~Task~) List~Task~
+        +filter_by_time(tasks: List~Task~, budget: int) List~Task~
+        +explain(task: Task) str
+    }
+
+    class DailyPlan {
+        +str date
+        +Pet pet
+        +List~ScheduledTask~ scheduled_tasks
+        +List~Task~ dropped_tasks
+        +int total_duration
+        +add_scheduled_task(task: Task, start_time: str) void
+        +total_time_used() int
+        +to_display() str
+    }
+
+    class ScheduledTask {
+        +Task task
+        +str start_time
+        +str end_time
+        +overlaps_with(other: ScheduledTask) bool
+    }
+
+    Owner "1" --> "many" Pet : owns
+    Pet "1" --> "many" Task : has
+    Scheduler ..> DailyPlan : creates
+    DailyPlan "1" --> "many" ScheduledTask : contains
+    ScheduledTask --> Task : wraps
+    DailyPlan --> Pet : for

@@ -48,8 +48,9 @@ The common thread is that the first UML pass got the classes and their broad res
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+`Scheduler.filter_by_time()` processes tasks tier by tier in strict priority order — `high`, then `medium`, then `low` — and a lower tier is never allowed to displace a higher one, even when doing so would leave less of the time budget unused. For example, if a single 25-minute high-priority task and two 15-minute medium-priority tasks are competing for a 30-minute budget, the scheduler keeps the high-priority task and drops both medium ones, even though scheduling the two medium tasks instead would use the full 30 minutes with none wasted. Within a tier, the scheduler does search for the best-filling combination of that tier's own tasks (`_best_fit_subset()`), but it will never trade a higher-priority task away to improve overall time utilization.
+
+This tradeoff is reasonable for pet care specifically because priority tiers aren't just a sorting convenience — they stand in for things like "give medication" versus "extra playtime," where skipping the former to fit more of the latter into the day would be a bad outcome regardless of how well it uses the clock. Optimizing for minimal wasted time across the whole day would occasionally sacrifice a health- or safety-critical task to pack in more low-stakes ones, which defeats the purpose of having priorities at all. The cost is that the total schedule isn't always time-optimal in the aggregate — but that's the correct choice when "optimal" and "safe" pull in different directions.
 
 ---
 

@@ -74,14 +74,14 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Sorting by priority | `Scheduler.sort_by_priority()` | Sorts highest priority first, breaking ties by shorter duration. Used internally by `build_schedule()` to decide scheduling order. |
+| Sorting by time | `Scheduler.sort_by_time()` | Sorts tasks by their `preferred_time` ("HH:MM"); tasks with no preferred time sort last. Exposed in the Streamlit UI as a "Sort by preferred time" toggle on the task table. |
+| Filtering by pet / status | `Owner.filter_tasks(pet_name=None, completed=None)` | Narrows the owner's tasks by pet name and/or completion status, either independently or combined. Exposed in the Streamlit UI as "Filter by pet" / "Filter by status" dropdowns. |
+| Conflict detection | `Scheduler.detect_conflicts()` | Lightweight pairwise scan of same-day tasks with a `preferred_time`: computes each task's end time and flags any pair whose windows overlap (same pet or different pets), returning warning strings instead of raising an error. Wired into `build_schedule()` (surfaced in the plan's "Warnings" section) and into a standalone "Check for time conflicts" button in the UI. |
+| Recurring tasks | `Task.is_due_today()`, `Task.mark_complete()`, `Task._create_next_occurrence()`, `Task._next_matching_weekday()` | Completing a `daily` or `weekly` task doesn't just flip a flag — `mark_complete()` spawns a fresh, incomplete `Task` for the next due date (`today + 1 day` for daily; the next matching weekday, or `+7 days` if there's no day-of-week pattern, for weekly) and attaches it to the same pet, so the recurrence continues on its own. |
+| Time-budget packing | `Scheduler.filter_by_time()`, `Scheduler._best_fit_subset()` | Processes tasks tier by tier in strict priority order (a lower-priority tier can never bump a higher one), but within each tier runs a small subset-sum search to pick whichever combination of that tier's tasks uses the most of the remaining time — rather than a fixed duration-order greedy pass that can leave minutes unused. |
 
 ## 📸 Demo Walkthrough
 

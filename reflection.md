@@ -14,13 +14,28 @@ Based on the scenario in the README, a user of PawPal+ should be able to:
 
 **a. Initial design**
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+My initial UML design splits the system into six classes, separating data from behavior:
+
+- **Owner** — holds the pet owner's `name` and `preferences` (e.g., preferred start time, max daily care time). It's mostly a data holder, with an `add_pet()` method to associate pets with an owner.
+- **Pet** — holds `name`, `species`, `breed`, and a reference back to its `Owner`. Like Owner, it's primarily a data holder, with an `add_task()` method for attaching care tasks to a specific pet.
+- **Task** — represents a single pet care task (walk, feeding, meds, grooming, enrichment) with `title`, `category`, `duration_minutes`, `priority`, `recurrence`, and an optional `preferred_time`. It owns logic that's intrinsic to a single task, like `conflicts_with()` (time overlap) and `is_due_today()` (recurrence check).
+- **ScheduledTask** — a thin wrapper around a `Task` once it's been placed on the calendar, adding `start_time` and `end_time`, plus an `overlaps_with()` method to check against other scheduled tasks.
+- **Scheduler** — the "brain" of the system. It holds the constraints (`available_time_minutes`, `start_time`, `constraints` dict) and is responsible for turning a list of `Task` objects into a `DailyPlan` via `build_schedule()`, using helper methods like `sort_by_priority()`, `filter_by_time()`, and `explain()` to justify its choices.
+- **DailyPlan** — the output of scheduling: a `date`, the `Pet` it's for, the list of `scheduled_tasks`, any `dropped_tasks` that didn't fit, and the `total_duration` used. It's responsible for presenting the result (`to_display()`) rather than deciding it.
+
+The core responsibility split is: **Owner/Pet/Task** describe *what exists*, **Scheduler** decides *what happens*, and **DailyPlan/ScheduledTask** describe *what was decided*. Keeping the scheduling logic isolated in `Scheduler` (rather than spreading it across `Task` or `Pet`) was a deliberate choice so the scheduling algorithm could change without touching the data classes.
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Once I translated the UML into an actual `pawpal_system.py` skeleton, a self-review surfaced a few gaps between the diagram and the code, so I made these changes:
+
+- **Added `Owner.pets` and `Pet.tasks` list attributes.** The original design gave `Owner.add_pet()` and `Pet.add_task()` methods but no collection to add into — the one-to-many relationships implied by the UML weren't actually represented in the data. I added the missing lists and had `add_pet()`/`add_task()` append to them (and `add_pet()` now also sets the pet's `owner` back-reference).
+- **Gave `Scheduler.build_schedule()` a `pet` and `date` parameter.** It originally only took `tasks`, but `DailyPlan` requires a `pet` and `date` to be constructed. Without them, `Scheduler` had no way to actually produce a valid `DailyPlan`.
+- **Moved conflict detection off `Task` and onto `ScheduledTask`.** `Task.conflicts_with()` had no start/end time to compare against — only `ScheduledTask` carries `start_time`/`end_time`. I removed `conflicts_with()` from `Task` and implemented `ScheduledTask.overlaps_with()` instead, since that's the class that actually has the information needed to detect a real time conflict.
+- **Dropped the stored `total_duration` field on `DailyPlan`.** Having both a stored field and a `total_time_used()` method risked the two drifting out of sync every time a task was added. I removed the field and made `total_time_used()` compute the sum from `scheduled_tasks` directly, so there's a single source of truth.
+- **Typed `priority` and `recurrence` as `Literal` types**, and added a `days_of_week` field to `Task`, since a plain `str` allowed invalid values and gave `recurrence="weekly"` no way to say *which* day.
+
+The common thread is that the first UML pass got the classes and their broad responsibilities right, but under-specified the actual data needed to wire those responsibilities together — most of these fixes were about making relationships and computed values concrete rather than changing the overall class structure.
 
 ---
 

@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from pawpal_system import Owner, Pet, Scheduler, Task
+from persistence import load_owner, save_owner
 
 
 def make_task(**overrides):
@@ -231,3 +232,57 @@ class TestEdgeCases:
     def test_negative_duration_task_is_rejected_at_creation(self):
         with pytest.raises(ValueError):
             make_task(title="Invalid", duration_minutes=-5)
+
+
+# ---------------------------------------------------------------------------
+# Persistence
+# ---------------------------------------------------------------------------
+
+class TestPersistence:
+    def test_save_then_load_round_trips_owner_pets_and_tasks(self, tmp_path):
+        owner = Owner(name="Jordan", preferences={"start_time": "08:00"})
+        dog = Pet(name="Mochi", species="dog", breed="Shiba Inu")
+        cat = Pet(name="Biscuit", species="cat")
+        owner.add_pet(dog)
+        owner.add_pet(cat)
+        dog.add_task(make_task(
+            title="Morning walk", duration_minutes=30, priority="high",
+            recurrence="weekly", days_of_week=[0, 2, 4], preferred_time="08:00",
+        ))
+        cat.add_task(make_task(title="Feeding", completed=True))
+
+        path = tmp_path / "owner.json"
+        save_owner(owner, str(path))
+        loaded = load_owner(str(path))
+
+        assert loaded.name == "Jordan"
+        assert loaded.preferences == {"start_time": "08:00"}
+        assert [pet.name for pet in loaded.pets] == ["Mochi", "Biscuit"]
+
+        loaded_dog = loaded.pets[0]
+        assert loaded_dog.breed == "Shiba Inu"
+        assert loaded_dog.owner is loaded
+        loaded_walk = loaded_dog.tasks[0]
+        assert loaded_walk.title == "Morning walk"
+        assert loaded_walk.recurrence == "weekly"
+        assert loaded_walk.days_of_week == [0, 2, 4]
+        assert loaded_walk.pet is loaded_dog
+
+        loaded_feeding = loaded.pets[1].tasks[0]
+        assert loaded_feeding.completed is True
+
+    def test_recurring_tasks_due_date_round_trips(self, tmp_path):
+        owner = Owner(name="Jordan")
+        pet = Pet(name="Mochi", species="dog")
+        owner.add_pet(pet)
+        task = make_task(recurrence="daily")
+        pet.add_task(task)
+        task.mark_complete(date(2026, 7, 6))
+
+        path = tmp_path / "owner.json"
+        save_owner(owner, str(path))
+        loaded = load_owner(str(path))
+
+        next_task = loaded.pets[0].tasks[1]
+        assert next_task.due_date == date(2026, 7, 7)
+        assert next_task.completed is False

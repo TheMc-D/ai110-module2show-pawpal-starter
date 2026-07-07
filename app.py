@@ -1,10 +1,15 @@
+import json
 from datetime import date
+from pathlib import Path
 
 import streamlit as st
 
 from pawpal_system import Owner, Pet, Scheduler, Task
+from persistence import load_owner, owner_to_dict, save_owner
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
+
+DATA_FILE = "pawpal_data.json"
 
 st.title("🐾 PawPal+")
 
@@ -43,7 +48,10 @@ At minimum, your system should:
 st.divider()
 
 if "owner" not in st.session_state:
-    st.session_state.owner = Owner(name="Jordan")
+    if Path(DATA_FILE).exists():
+        st.session_state.owner = load_owner(DATA_FILE)
+    else:
+        st.session_state.owner = Owner(name="Jordan")
 owner = st.session_state.owner
 
 st.subheader("Owner & Pets")
@@ -63,6 +71,19 @@ if owner.pets:
     st.write("Current pets:", ", ".join(pet.name for pet in owner.pets))
 else:
     st.info("No pets yet. Add one above.")
+
+save_col1, save_col2 = st.columns(2)
+with save_col1:
+    if st.button("💾 Save data"):
+        save_owner(owner, DATA_FILE)
+        st.success(f"Saved to {DATA_FILE}.")
+with save_col2:
+    st.download_button(
+        "⬇️ Download as JSON",
+        data=json.dumps(owner_to_dict(owner), indent=2),
+        file_name="pawpal_data.json",
+        mime="application/json",
+    )
 
 st.divider()
 

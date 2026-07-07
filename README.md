@@ -36,6 +36,7 @@ What's actually implemented in `pawpal_system.py`, connected to the Streamlit UI
 - **Conflict warnings** — `Scheduler.detect_conflicts()` flags any pair of same-day tasks whose preferred times overlap, even across different pets, and surfaces them automatically whenever a schedule is built.
 - **Daily & weekly recurrence** — completing a `daily` or `weekly` task automatically spawns its next occurrence (respecting a weekly `days_of_week` pattern, e.g. Mon/Wed/Fri), so recurring care never has to be re-entered by hand.
 - **Plan explanations** — `Scheduler.explain()` gives a human-readable reason for why each task made it onto the schedule.
+- **Data persistence** — `persistence.save_owner()` / `load_owner()` serialize an owner's full pet/task graph to a JSON file; the Streamlit app auto-loads `pawpal_data.json` on startup if it exists, offers a "Save data" button, and lets you download a JSON snapshot at any time.
 
 ## Getting started
 
